@@ -1,0 +1,19 @@
+# render.com Blueprint: describes the web service so render can create it from this repository.
+# Spec: https://render.com/docs/blueprint-spec
+# Secrets are NOT stored here: MONGODB_URI uses "sync: false", so render asks for its value
+# once, in the dashboard, when the Blueprint is first created.
+services:
+  - type: web
+    name: M01041307-after-school      # becomes the onrender.com address; must contain the student number (handbook)
+    runtime: node                     # Node version comes from .node-version (24)
+    plan: free
+    region: frankfurt                 # keep the Atlas cluster in AWS Frankfurt (eu-central-1) too
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health          # GET /health must answer 2xx before the first deploy, or render keeps restarting
+    autoDeployTrigger: commit         # every push to main redeploys
+    envVars:
+      - key: MONGODB_URI
+        sync: false                   # entered in the render dashboard; never committed
+      - key: DB_NAME
+        value: afterschool
