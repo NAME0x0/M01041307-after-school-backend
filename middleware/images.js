@@ -5,7 +5,7 @@
  *   message if the image file does not exist; the student needs to be able to test and
  *   demonstrate these aspects". Demo both: one image that exists, and one name that does not.
  *
- * Images are one per topic, .webp (e.g. math.webp); each lesson's "image" field holds the file name.
+ * Images are one per topic, .webp (e.g. football.webp); each lesson's "image" field holds the file name.
  */
 function images(req, res, next) {
     // TODO Static images (4%) (mounted in server.js on '/images', so req.path is just '/<file>'):

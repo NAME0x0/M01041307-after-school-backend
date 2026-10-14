@@ -4,8 +4,8 @@ Starting data for the `afterschool` database, in MongoDB's Extended JSON (`{"$oi
 
 | File | Collection | Contents |
 |---|---|---|
-| `lesson.json` | `lesson` | 30 lessons: 15 in the UAE (AED, Dubai areas), 15 in the UK (GBP, north London areas), 5 spaces each, 8 topics |
-| `teacher.json` | `teacher` | 10 teachers: 5 per country, 3 lessons each; between them they teach every lesson exactly once |
+| `lesson.json` | `lesson` | 30 lessons: 15 in the UAE (AED, Dubai areas), 15 in the UK (GBP, north London areas), 5 spaces each, 15 different topics per country (22 overall), each priced per session from real providers' prices |
+| `teacher.json` | `teacher` | 10 teachers: 5 per country, 2 to 4 related lessons each (e.g. one teaches the team sports); between them they teach every lesson exactly once |
 
 The `order` collection is not seeded: the first checkout creates it.
 
@@ -25,7 +25,7 @@ To start over, drop the collection and import again.
 
 ## Images
 
-Each lesson's `image` is its topic in lower case: `math.webp`, `english.webp`, `science.webp`, `coding.webp`, `art.webp`, `music.webp`, `chess.webp`, `robotics.webp`. Put those eight files in `../images/` (they are AI-generated later; record the tool and prompts in the GenAI log).
+Each lesson's `image` is its topic in lower case, with hyphens for spaces, `plus` for `+` and `and` for `&`: e.g. `football.webp`, `maths-tuition.webp`, `11-plus-exam-prep.webp`, `arts-and-crafts.webp`. A topic taught in both countries shares one image, so there are 22 files. Put them in `../images/` (they are AI-generated later; record the tool and prompts in the GenAI log).
 
 ## Before submission
 
