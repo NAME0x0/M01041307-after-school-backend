@@ -7,7 +7,7 @@ CST3144 Coursework 1 (Middlesex University Dubai, 2026/27). The REST API behind 
 
 ## Current implementation stage (2026-11-10)
 
-The HTTP layer is implemented using the material saved for Weeks 5, 7 and 8. Week 6 has no saved teaching material. **MongoDB connection and database operations are still TODOs**, by the student's choice; no Atlas or Compass setup has been performed by this change.
+The HTTP layer is implemented using the material saved for Weeks 5, 7 and 8. Week 6 has no saved teaching material. **MongoDB connection and database operations are still TODOs**, by the student's choice. The Atlas cluster and database user exist (see [MongoDB Atlas setup](#mongodb-atlas-setup-in-your-atlas-account)), but the code does not connect to them yet.
 
 - Working: middleware registration, request logging, CORS/preflight, JSON parsing, static lesson images, missing-file/route errors, routers, and request validation.
 - Incomplete: persistent lesson reads/updates, order creation, database search, teacher queries, enrolment counting, database health check and connecting before listening.
@@ -41,7 +41,7 @@ The HTTP layer is implemented using the material saved for Weeks 5, 7 and 8. Wee
 |---|---|
 | Runtime | Node.js 24 (pinned in `.node-version`) |
 | Framework | Express 5.2.1, CommonJS (`require`) |
-| Database | MongoDB Atlas via the `mongodb` driver 7.7.0; database `afterschool` |
+| Database | MongoDB Atlas via the `mongodb` driver 7.7.0; database `afterschool` on a free M0 cluster, AWS Stockholm (eu-north-1) |
 | Hosting | render.com free web service, region Frankfurt, created from `render.yaml` |
 | Dev tooling | Node built-ins only: `--watch` (restart on save) and `--env-file` (load `.env`) |
 
@@ -129,11 +129,13 @@ The middleware uses Express's built-in facilities: [middleware guide](https://ex
 
 ## MongoDB Atlas setup (in your Atlas account)
 
-1. Create a free (M0) cluster on **AWS, Frankfurt (eu-central-1)**, the same region as render. Check that M0 is offered there when you create it.
-2. **Database Access**: add a user with **readWrite on `afterschool` only** and a long generated password.
-3. **Network Access**: allow `0.0.0.0/0`. render's free tier has no fixed outbound IP, so the dedicated user and its password are what protect the data.
-4. Copy the connection string into `.env` as `MONGODB_URI`.
-5. In Compass, import `seed/lesson.json` into `afterschool.lesson` and `seed/teacher.json` into `afterschool.teacher`.
+All five steps were done on 2026-11-11.
+
+1. **Cluster**: the free (M0) cluster `CST3144-Fullstack-CW1` on **AWS, Stockholm (eu-north-1)**. The plan was Frankfurt, the same region as render. The cluster created earlier was kept instead, because an Atlas project holds only one free cluster.
+2. **Database Access**: the user `afterschool-api`, with **readWrite on `afterschool` only** and a 40-character generated password.
+3. **Network Access**: `0.0.0.0/0`. render's free tier has no fixed outbound IP, so the dedicated user and its password are what protect the data.
+4. **Connection string**: in `.env` as `MONGODB_URI` (git-ignored). Never put it in the repository.
+5. **Seed data**: `seed/lesson.json` imported into `afterschool.lesson` (30 lessons) and `seed/teacher.json` into `afterschool.teacher` (10 teachers) with Compass. Every `_id` and teacher `lessonIDs` entry is an ObjectId. To start over, follow [seed/README.md](seed/README.md).
 
 ## Deploy on render (in your render account)
 
