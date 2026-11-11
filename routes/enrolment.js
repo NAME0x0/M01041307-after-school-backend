@@ -13,7 +13,10 @@ const express = require('express');
 const router = express.Router();
 
 // GET /enrolment/:lessonid
-router.get('/enrolment/:lessonid', async (req, res) => {
+router.get('/enrolment/:lessonid', (req, res) => {
+    if (!/^[a-f0-9]{24}$/i.test(req.params.lessonid)) {
+        return res.status(400).json({ error: 'Lesson ID must contain 24 hexadecimal characters' });
+    }
     // TODO Enrolment (6%):
     //   1. Read the lesson ID from req.params.lessonid (as the same type orders.js stores: string or ObjectId).
     //   2. Count its appearances across every order's lessonIDs. One way, with an aggregation pipeline:
@@ -21,7 +24,7 @@ router.get('/enrolment/:lessonid', async (req, res) => {
     //          $match  that ID
     //          $count  the rows
     //   3. Respond with { lessonID: <the id>, enrolled: <the count> } (0 when nobody has bought it yet).
-    res.status(501).json({ error: 'Not implemented yet' });
+    res.status(501).json({ error: 'Enrolment database count not implemented yet' });
 });
 
 module.exports = router;
