@@ -7,7 +7,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch --env-file=.env server.js"
+    "dev": "node --watch --env-file=.env server.js",
+    "test": "node --test"
   },
   "author": "Muhammad Afsah Mumtaz (NAME0x0)",
   "license": "UNLICENSED",
