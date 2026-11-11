@@ -8,19 +8,24 @@
  *   browser send a "preflight" OPTIONS request first, asking permission.
  *   CORS is enforced only by browsers: Postman and curl ignore it, so it is not a password.
  */
+const allowedOrigins = [
+    'https://name0x0.github.io',
+    'http://127.0.0.1:5500',
+    'http://localhost:5500'
+];
+
 function cors(req, res, next) {
-    // TODO CORS:
-    //   1. The allow-list (agreed):
-    //          https://name0x0.github.io    GitHub Pages, the deployed front-end
-    //          http://127.0.0.1:5500        Live Server while developing
-    //          http://localhost:5500
-    //   2. If the request's Origin header is in the list:
-    //          send it back in the Access-Control-Allow-Origin header, and add Vary: Origin
-    //          (so caches keep a separate copy per origin).
-    //      If it is not in the list: send no CORS header at all.
-    //   3. Also allow the methods GET, POST, PUT, OPTIONS and the header Content-Type.
-    //   4. A preflight (method OPTIONS) needs no route: answer it straight away with status 204.
-    //      Every other request continues with next().
+    // Vary also belongs on replies without an allowed origin, for correct caching.
+    res.vary('Origin');
+    const origin = req.get('Origin');
+    if (allowedOrigins.includes(origin)) {
+        res.set('Access-Control-Allow-Origin', origin);
+        res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type');
+    }
+    if (req.method === 'OPTIONS') {
+        return res.status(204).end();
+    }
     next();
 }
 

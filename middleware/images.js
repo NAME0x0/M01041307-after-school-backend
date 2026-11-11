@@ -7,17 +7,21 @@
  *
  * Images are one per topic, .webp (e.g. football.webp); each lesson's "image" field holds the file name.
  */
-function images(req, res, next) {
-    // TODO Static images (4%) (mounted in server.js on '/images', so req.path is just '/<file>'):
-    //   1. Build the full path from the images folder and the requested file name,
-    //      with the path module, so it works on Windows (here) and Linux (render).
-    //   2. Make sure the result is still INSIDE the images folder:
-    //      a request like /images/../server.js must not escape and send your code.
-    //   3. If the file exists: send it (Express sets the right Content-Type, e.g. image/webp).
-    //   4. If it does not: respond 404 with a clear JSON error, e.g. { error: 'Image not found: <name>' }.
-    //   (An alternative to steps 1-3 is express.static on the images folder, followed by your own
-    //    404 middleware for step 4. Either way, be ready to explain which one you chose and why.)
-    next();
-}
+const express = require('express');
+const path = require('path');
+
+const images = express.Router();
+
+// An absolute root works regardless of the directory used to launch Node.
+// express.static confines requests to this folder and ignores dotfiles by default.
+images.use(express.static(path.join(__dirname, '..', 'images'), {
+    index: false,
+    redirect: false
+}));
+
+// Missing files fall through from express.static to this response.
+images.use((req, res) => {
+    res.status(404).json({ error: 'Image not found' });
+});
 
 module.exports = images;
