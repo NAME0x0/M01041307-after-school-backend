@@ -154,6 +154,8 @@ The middleware uses Express's built-in facilities: [middleware guide](https://ex
 | render.com | n/a | Hosting service | https://render.com |
 | Lesson images | n/a | AI-generated for this project; tool and prompts recorded in the coursework GenAI log | n/a |
 
+**GenAI acknowledgement:** parts of this project's setup were produced with AI assistance and are declared in the coursework's GenAI log, as the module's AMBER rule requires. All application logic is written by the author.
+
 ## Licence
 
 Proprietary, all rights reserved, view only. See [LICENSE](LICENSE).
