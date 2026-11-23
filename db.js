@@ -9,16 +9,47 @@
  *   Database: afterschool    Collections: lesson, order, teacher
  */
 
-// TODO connectToDb():
-//   1. Read MONGODB_URI and DB_NAME from process.env.
-//      Never write the URI in code: it contains the database password.
-//   2. Create a MongoClient with the URI and wait for it to connect.
-//   3. Keep client.db(DB_NAME) in a variable at the top of this file.
-async function connectToDb() {}
+// Credentials come from the environment; one client serves every route.
+const { MongoClient } = require('mongodb');
+const dns = require('node:dns');
+let client;
+let database;
 
-// TODO getDb():
-//   Return the database kept by connectToDb().
-//   If connectToDb() has not run yet, throw an error that says so (easier to debug than "undefined").
-function getDb() {}
+async function connectToDb() {
+    if (database) return database;
+    const uri = process.env.MONGODB_URI;
+    const name = process.env.DB_NAME || 'afterschool';
+    if (!uri) throw new Error('MONGODB_URI is required');
+    if (process.env.DNS_SERVERS) {
+        dns.setServers(process.env.DNS_SERVERS.split(',').map(value => value.trim()));
+    }
+    const connection = new MongoClient(uri, { serverSelectionTimeoutMS: 10000 });
+    try {
+        await connection.connect();
+        const db = connection.db(name);
+        await db.command({ ping: 1 });
+        await db.collection('order').createIndex({ checkoutId: 1 }, {
+            unique: true, partialFilterExpression: { checkoutId: { $type: 'string' } }
+        });
+        client = connection;
+        database = db;
+        return database;
+    } catch (error) {
+        await connection.close();
+        throw error;
+    }
+}
 
-module.exports = { connectToDb, getDb };
+// Fail clearly if a caller tries to query before startup completes.
+function getDb() {
+    if (!database) throw new Error('Database is not connected');
+    return database;
+}
+
+async function closeDb() {
+    database = undefined;
+    if (client) await client.close();
+    client = undefined;
+}
+
+module.exports = { connectToDb, getDb, closeDb };
