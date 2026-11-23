@@ -123,6 +123,8 @@ Copy `.env.example` to `.env` (git-ignored) and fill it in. On render, `MONGODB_
 
 If local Atlas DNS resolution fails, set `DNS_SERVERS=1.1.1.1,8.8.8.8` in `.env`. The backend applies this optional override to Node's DNS resolver before connecting; it does not change Windows settings. Leave it unset on Render unless needed there. Local startup and the live `/health`, `/lessons` (30 records) and `/teachers` (10 records) reads were verified with this override on 2026-11-23.
 
+Sources for this workaround: Stack Overflow questions [79873598](https://stackoverflow.com/questions/79873598/mongodb-atlas-srv-connection-fails-with-querysrv-econnrefused-after-switching-no) and [79877046](https://stackoverflow.com/questions/79877046/mongodb-atlas-connection-fails-with-querysrv-econnrefused-from-node-js), Node.js issue [#64428](https://github.com/nodejs/node/issues/64428), and the [`dns.setServers()` documentation](https://nodejs.org/api/dns.html#dnssetserversservers).
+
 ## Run locally
 
 ```

@@ -20,6 +20,14 @@ async function connectToDb() {
     const uri = process.env.MONGODB_URI;
     const name = process.env.DB_NAME || 'afterschool';
     if (!uri) throw new Error('MONGODB_URI is required');
+    // Optional local workaround (DNS_SERVERS in .env). On some Windows 11 setups Node's resolver
+    // uses 127.0.0.1, so the mongodb+srv:// SRV lookup fails with "querySrv ECONNREFUSED".
+    // dns.setServers() changes only Node's dns.resolve*() calls, not the Windows settings.
+    // Sources:
+    //   https://stackoverflow.com/questions/79873598/mongodb-atlas-srv-connection-fails-with-querysrv-econnrefused-after-switching-no
+    //   https://stackoverflow.com/questions/79877046/mongodb-atlas-connection-fails-with-querysrv-econnrefused-from-node-js
+    //   https://github.com/nodejs/node/issues/64428
+    //   https://nodejs.org/api/dns.html#dnssetserversservers
     if (process.env.DNS_SERVERS) {
         dns.setServers(process.env.DNS_SERVERS.split(',').map(value => value.trim()));
     }
