@@ -10,29 +10,27 @@
  */
 const express = require('express');
 const validateCountry = require('../middleware/country');
+const db = require('../db');
+const { ObjectId } = require('mongodb');
 
 const router = express.Router();
 
 // GET /teachers               -> every teacher
 // GET /teachers?country=UAE   -> one country's teachers (fills the front-end's picker)
-router.get('/teachers', validateCountry, (req, res) => {
-    // TODO Teachers (8%), part 1:
-    //   1. Build a filter: empty, or { country } when req.query.country is given.
-    //   2. Find the matching teachers in the 'teacher' collection and respond with them as JSON.
-    res.status(501).json({ error: 'Teacher database query not implemented yet' });
+router.get('/teachers', validateCountry, async (req, res) => {
+    const filter = req.query.country === undefined ? {} : { country: req.query.country };
+    res.json(await db.getDb().collection('teacher').find(filter).toArray());
 });
 
 // GET /teachers/:id/lessons -> the lessons that one teacher teaches
-router.get('/teachers/:id/lessons', (req, res) => {
+router.get('/teachers/:id/lessons', async (req, res) => {
     if (!/^[a-f0-9]{24}$/i.test(req.params.id)) {
         return res.status(400).json({ error: 'Teacher ID must contain 24 hexadecimal characters' });
     }
-    // TODO Teachers (8%), part 2:
-    //   1. Turn req.params.id into an ObjectId (respond 400 if it is not valid).
-    //   2. Find that teacher. If there is none, respond 404.
-    //   3. Find the lessons whose _id is in the teacher's lessonIDs (the $in operator).
-    //   4. Respond with those lessons as JSON.
-    res.status(501).json({ error: 'Teacher lesson database query not implemented yet' });
+    const database = db.getDb();
+    const teacher = await database.collection('teacher').findOne({ _id: new ObjectId(req.params.id) });
+    if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
+    res.json(await database.collection('lesson').find({ _id: { $in: teacher.lessonIDs || [] } }).toArray());
 });
 
 module.exports = router;
