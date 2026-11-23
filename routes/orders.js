@@ -6,11 +6,13 @@
  * Repeating an ID once per space is what lets GET /enrolment/:lessonid count spaces per lesson.
  */
 const express = require('express');
+const db = require('../db');
+const { ObjectId } = require('mongodb');
 
 const router = express.Router();
 
 // POST /orders  body: { name, phone, lessonIDs, spaces, checkoutId?, email? }
-router.post('/orders', (req, res) => {
+router.post('/orders', async (req, res) => {
     if (!req.is('application/json')) {
         return res.status(415).json({ error: 'Send the order as application/json' });
     }
@@ -38,11 +40,42 @@ router.post('/orders', (req, res) => {
     if (checkoutId !== undefined && (typeof checkoutId !== 'string' || !checkoutId.trim())) {
         return res.status(400).json({ error: 'checkoutId must be a non-empty string when provided' });
     }
-    // TODO Database: validate that the lessons exist, agree on the stored ID type,
-    // save only the supported order fields, then return 201 with the inserted ID.
-    // Store optional email when supplied; it is format validation, not email authentication.
-    // TODO Database: handle checkoutId retries without inserting the same order twice.
-    res.status(501).json({ error: 'Order database insert not implemented yet' });
+    const database = db.getDb();
+    const orders = database.collection('order');
+    const document = {
+        name: name.trim(), phone, lessonIDs: lessonIDs.map(id => new ObjectId(id)), spaces
+    };
+    if (email !== undefined) document.email = email.trim();
+    if (checkoutId !== undefined) document.checkoutId = checkoutId.trim();
+
+    function replay(existing) {
+        const same = existing.name === document.name && existing.phone === document.phone
+            && existing.spaces === spaces && (existing.email || '') === (document.email || '')
+            && JSON.stringify(existing.lessonIDs.map(String).sort())
+                === JSON.stringify(document.lessonIDs.map(String).sort());
+        if (!same) return res.status(409).json({ error: 'checkoutId already belongs to a different order' });
+        return res.json({ insertedId: existing._id });
+    }
+
+    if (document.checkoutId) {
+        const existing = await orders.findOne({ checkoutId: document.checkoutId });
+        if (existing) return replay(existing);
+    }
+    const uniqueIds = [...new Set(document.lessonIDs.map(String))].map(id => new ObjectId(id));
+    const lessons = await database.collection('lesson').find({ _id: { $in: uniqueIds } }).toArray();
+    if (lessons.length !== uniqueIds.length) {
+        return res.status(404).json({ error: 'One or more lessons do not exist' });
+    }
+    try {
+        const result = await orders.insertOne(document);
+        res.status(201).json({ insertedId: result.insertedId });
+    } catch (error) {
+        // The unique index also protects simultaneous retries from duplicate inserts.
+        if (error.code !== 11000 || !document.checkoutId) throw error;
+        const existing = await orders.findOne({ checkoutId: document.checkoutId });
+        if (!existing) throw error;
+        return replay(existing);
+    }
 });
 
 module.exports = router;
