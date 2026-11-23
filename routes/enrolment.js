@@ -9,22 +9,28 @@
  * number is simply how many times this lesson's ID appears across all orders' lessonIDs.
  */
 const express = require('express');
+const db = require('../db');
+const { ObjectId } = require('mongodb');
 
 const router = express.Router();
 
 // GET /enrolment/:lessonid
-router.get('/enrolment/:lessonid', (req, res) => {
+router.get('/enrolment/:lessonid', async (req, res) => {
     if (!/^[a-f0-9]{24}$/i.test(req.params.lessonid)) {
         return res.status(400).json({ error: 'Lesson ID must contain 24 hexadecimal characters' });
     }
-    // TODO Enrolment (6%):
-    //   1. Read the lesson ID from req.params.lessonid (as the same type orders.js stores: string or ObjectId).
-    //   2. Count its appearances across every order's lessonIDs. One way, with an aggregation pipeline:
-    //          $unwind lessonIDs   (one row per ID in each order)
-    //          $match  that ID
-    //          $count  the rows
-    //   3. Respond with { lessonID: <the id>, enrolled: <the count> } (0 when nobody has bought it yet).
-    res.status(501).json({ error: 'Enrolment database count not implemented yet' });
+    const id = new ObjectId(req.params.lessonid);
+    const database = db.getDb();
+    if (!await database.collection('lesson').findOne({ _id: id })) {
+        return res.status(404).json({ error: 'Lesson not found' });
+    }
+    const counts = await database.collection('order').aggregate([
+        { $match: { lessonIDs: id } },
+        { $unwind: '$lessonIDs' },
+        { $match: { lessonIDs: id } },
+        { $count: 'enrolled' }
+    ]).toArray();
+    res.json({ lessonID: id.toHexString(), enrolled: counts[0]?.enrolled || 0 });
 });
 
 module.exports = router;

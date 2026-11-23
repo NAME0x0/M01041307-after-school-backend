@@ -3,18 +3,20 @@
  *
  * Core idea
  *   Healthy means BOTH this server and the database answer.
- *   Until the database stage is implemented, report unavailable rather than ready.
+ *   A failed database ping reports unavailable.
  */
 const express = require('express');
+const db = require('../db');
 
 const router = express.Router();
 
-router.get('/health', (req, res) => {
-    // TODO Health check:
-    //   1. Ask the database to answer a ping (the database's command method, with { ping: 1 }).
-    //   2. If it answers: respond 200 with { status: 'ok' }.
-    //   3. If it throws (Atlas unreachable): respond 503 with { status: 'unavailable' }.
-    res.status(503).json({ status: 'unavailable', error: 'Database health check not implemented yet' });
+router.get('/health', async (req, res) => {
+    try {
+        await db.getDb().command({ ping: 1 });
+        res.json({ status: 'ok' });
+    } catch {
+        res.status(503).json({ status: 'unavailable' });
+    }
 });
 
 module.exports = router;
