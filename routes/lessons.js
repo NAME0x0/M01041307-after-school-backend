@@ -6,23 +6,23 @@
  */
 const express = require('express');
 const validateCountry = require('../middleware/country');
+const db = require('../db');
+const { ObjectId } = require('mongodb');
 
 const router = express.Router();
 
 // GET /lessons            -> every lesson (what the marker sends from Postman)
 // GET /lessons?country=UK -> only that country's lessons (what the front-end sends)
-router.get('/lessons', validateCountry, (req, res) => {
+router.get('/lessons', validateCountry, async (req, res) => {
     const filter = {};
     if (req.query.country !== undefined) {
         filter.country = req.query.country;
     }
-    // TODO Database: find lessons with filter, await the array, then return JSON.
-    //   With NO country, it MUST still return every lesson (the handbook's GET /lessons).
-    res.status(501).json({ error: 'Lesson database query not implemented yet' });
+    res.json(await db.getDb().collection('lesson').find(filter).toArray());
 });
 
 // PUT /lessons/:id  body: the fields to set, e.g. { "space": 3 } or { "price": 90, "location": "Hendon" }
-router.put('/lessons/:id', (req, res) => {
+router.put('/lessons/:id', async (req, res) => {
     if (!/^[a-f0-9]{24}$/i.test(req.params.id)) {
         return res.status(400).json({ error: 'Lesson ID must contain 24 hexadecimal characters' });
     }
@@ -37,9 +37,19 @@ router.put('/lessons/:id', (req, res) => {
     if (Object.keys(changes).some(key => key === '_id' || key.startsWith('$') || key.includes('.'))) {
         return res.status(400).json({ error: 'Use simple field names; _id cannot be changed' });
     }
-    // TODO Database: convert the ID, update the supplied fields, return 404 if not found.
-    // Set attributes to their supplied values, not just an increment/decrement (3%).
-    res.status(501).json({ error: 'Lesson database update not implemented yet' });
+    if (['topic', 'location', 'image'].some(key => key in changes
+            && (typeof changes[key] !== 'string' || !changes[key].trim()))
+        || ('price' in changes && (!Number.isFinite(changes.price) || changes.price < 0))
+        || ('space' in changes && (!Number.isSafeInteger(changes.space) || changes.space < 0))
+        || ('country' in changes && !['UAE', 'UK'].includes(changes.country))
+        || ('currency' in changes && !['AED', 'GBP'].includes(changes.currency))) {
+        return res.status(400).json({ error: 'Provide supported lesson fields with valid values' });
+    }
+    const result = await db.getDb().collection('lesson').updateOne(
+        { _id: new ObjectId(req.params.id) }, { $set: changes }
+    );
+    if (!result.matchedCount) return res.status(404).json({ error: 'Lesson not found' });
+    res.json({ matchedCount: result.matchedCount, modifiedCount: result.modifiedCount });
 });
 
 module.exports = router;
