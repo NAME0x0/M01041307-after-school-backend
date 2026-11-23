@@ -3,7 +3,7 @@
  *
  * Core idea
  *   Middleware runs in registration order, then a router handles the request.
- *   This stage covers the HTTP layer only: database operations remain TODOs.
+ *   Connect to MongoDB before accepting requests.
  */
 const express = require('express');
 const logger = require('./middleware/logger');
@@ -15,6 +15,7 @@ const orders = require('./routes/orders');
 const search = require('./routes/search');
 const teachers = require('./routes/teachers');
 const enrolment = require('./routes/enrolment');
+const { connectToDb, closeDb } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -53,16 +54,25 @@ app.use((error, req, res, next) => {
     res.status(status).json({ error: message });
 });
 
-// TODO Database stage: connectToDb() BEFORE listening; stop if the connection fails.
 // Requiring this file in a test exports the app without starting another server.
 if (require.main === module) {
-    app.listen(PORT, error => {
-        if (error) {
-            console.error(error.message);
+    connectToDb().then(() => {
+        const server = app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+        server.on('error', async () => {
+            console.error('Unable to start HTTP server');
+            await closeDb();
             process.exitCode = 1;
-            return;
+        });
+        for (const signal of ['SIGINT', 'SIGTERM']) {
+            process.once(signal, () => server.close(async () => {
+                await closeDb();
+                process.exitCode = 0;
+            }));
         }
-        console.log(`Server listening on port ${PORT} (database operations not implemented)`);
+    }).catch(() => {
+        // Driver errors can contain connection details; keep credentials out of logs.
+        console.error('Database startup failed. Check MONGODB_URI, DB_NAME and Atlas network access.');
+        process.exitCode = 1;
     });
 }
 
