@@ -5,16 +5,39 @@
 
 CST3144 Coursework 1 (Middlesex University Dubai, 2026/27). The REST API behind the after-school lessons shop: Node.js + Express, the native MongoDB driver, data in MongoDB Atlas, hosted on **render.com**. The front-end is a separate repository.
 
-## Current implementation stage (2026-11-10)
+## Current implementation stage (2026-11-23)
 
-The HTTP layer is implemented using the material saved for Weeks 5, 7 and 8. Week 6 has no saved teaching material. **MongoDB connection and database operations are still TODOs**, by the student's choice. The Atlas cluster and database user exist (see [MongoDB Atlas setup](#mongodb-atlas-setup-in-your-atlas-account)), but the code does not connect to them yet.
+The HTTP layer and MongoDB operations are implemented. The server connects to Atlas, pings the database and creates a unique partial checkout-ID index before listening. Render deployment is pending. Local startup, database health and live lesson/teacher reads have been verified; live writes and the full frontend checkout still need verification.
 
-- Working: middleware registration, request logging, CORS/preflight, JSON parsing, static lesson images, missing-file/route errors, routers, and request validation.
-- Incomplete: persistent lesson reads/updates, order creation, database search, teacher queries, enrolment counting, database health check and connecting before listening.
-- Valid requests to data routes return **501** with a specific unfinished-operation message. Invalid requests return **400** or **415**. No request pretends to save an order or update a lesson.
-- `/health` returns **503** until the database check is written. This is a local learning stage, **not ready for the Render health check**.
+- Implemented: request logging, CORS/preflight, JSON parsing, static images, errors and request validation.
+- Implemented: lesson reads/updates, order creation, database search, teacher queries and enrolment counting.
+- Successful reads/updates return **200**; new orders return **201** with `insertedId`. An identical checkout retry returns **200** with the original ID; different contents with the same checkout ID return **409**.
+- `/health` returns **200** when the database answers its ping, **503** otherwise.
 
-`db.js` is unchanged. The server currently starts without it so the HTTP layer can be tested independently. At the database stage, connect successfully before calling `app.listen`. The existing test-only mock API remains separate; do not run it and this server on port 3000 at the same time. The frontend still needs that mock to display lessons until the real database routes are finished.
+`db.js` shares one connection across routes. Missing credentials or a failed connection prevent HTTP startup. Tests use stubbed database calls and a temporary local HTTP server; they do not modify Atlas.
+
+## Relationship to the saved lectures
+
+The implementation follows the lecture stack and request flow. It is an application of the examples to this project's lesson/order data, not a literal copy of the demonstration applications.
+
+| Lecture | Matching implementation |
+|---|---|
+| Week 5, slides 17 and 26 | CommonJS `require` and `module.exports` split the backend into modules |
+| Week 7, slides 4–8 and 18–19 | Express routers, ordered middleware, request logging, static files and missing-file responses |
+| Week 8, slides 6, 9, 19 and 21–23 | JSON responses, input checks, HTTP methods, native MongoDB driver and Atlas |
+| Week 10, slides 3–5 and 8 | Separate frontend/API/database, `npm start`, environment-based URI/port and connection before listening |
+
+The following are project-specific additions, not techniques demonstrated in those slides:
+
+- Country filters and the lesson/order/teacher schemas implement this project's data model.
+- Search uses `$regex`, `$expr`, `$convert` and `$regexMatch`; teacher lookup uses `$in`; enrolment uses an aggregation pipeline with `$unwind` and `$count`. These extend the basic MongoDB material for the existing challenge routes.
+- Optional checkout IDs and a unique partial index protect order retries. This extends the existing checkout contract; it is not a lecture requirement.
+- CORS, additional validation, database health checks, connection cleanup and automated tests support running and checking the app.
+- `DNS_SERVERS` is an optional local connectivity workaround, not a course requirement.
+
+The static-file middleware uses `express.static` instead of the Week 7 manual `fs.stat`/`sendFile` example. It preserves the logger → file sender → missing-file response sequence and confines files to the images directory. No additional runtime packages were introduced: dependencies remain `express` and `mongodb`.
+
+The lecture PDFs alone do not establish the exact coursework marking requirements. Existing references to handbook marks elsewhere in this repository have not been verified against the handbook during this review.
 
 ## Links
 
@@ -23,8 +46,8 @@ The HTTP layer is implemented using the material saved for Weeks 5, 7 and 8. Wee
 | This repository | https://github.com/NAME0x0/M01041307-after-school-backend |
 | Front-end repository | https://github.com/NAME0x0/M01041307-after-school-frontend |
 | Live front-end | https://name0x0.github.io/M01041307-after-school-frontend/ |
-| Hosted API | https://m01041307-after-school.onrender.com (the address **must** contain the student number) |
-| Route returning all lessons | https://m01041307-after-school.onrender.com/lessons |
+| Planned API (not deployed) | https://m01041307-after-school.onrender.com (the address **must** contain the student number) |
+| Planned lessons URL | https://m01041307-after-school.onrender.com/lessons |
 
 ## Rules from the Dubai handbook (breaking one can mean a zero)
 
@@ -48,8 +71,8 @@ The HTTP layer is implemented using the material saved for Weeks 5, 7 and 8. Wee
 ## Structure
 
 ```
-server.js              middleware, routers, errors and listen; DB startup still TODO
-db.js                  shared MongoDB connection TODO
+server.js              database startup, middleware, routers, errors and shutdown
+db.js                  shared MongoDB connection and checkout-ID index
 middleware/logger.js   prints every request (render shows it as the log)
 middleware/cors.js     lets the GitHub Pages front-end call this API
 middleware/country.js  validates the optional UAE/UK query parameter
@@ -68,7 +91,7 @@ tests/server.test.cjs   HTTP-layer checks; no Atlas or mock API required
 
 ## API
 
-This table describes the intended final API. At this stage the data operations below are TODOs (501); images work, and database health reports unavailable (503).
+The routes below use MongoDB. Database errors return JSON errors through the Express error handler.
 
 | Method & path | Purpose | Marks |
 |---|---|---|
@@ -92,22 +115,25 @@ Every request is printed by the logger middleware (4%); you must be able to expl
 | `order` | `name`, `phone`, `lessonIDs` (one entry per space bought), `spaces` |
 | `teacher` | `firstName`, `lastName`, `country`, `lessonIDs` |
 
-Starting data for `lesson` and `teacher` is in `seed/` (see `seed/README.md`). Once database operations are implemented, the first checkout creates `order`. The current frontend also supplies an optional `email` and a `checkoutId` for retry handling. These have request validation; saving them and preventing duplicate orders remain database-stage TODOs.
+Starting data for `lesson` and `teacher` is in `seed/` (see `seed/README.md`). Startup creates the order collection's checkout-ID index. Orders store optional `email` and `checkoutId`, and use ObjectIds for `lessonIDs`, one entry per purchased space. The unique partial index prevents duplicate checkout IDs while allowing orders without one. Order creation does not change lesson availability: the client must use `PUT /lessons/:id` separately. These two requests are not an atomic booking transaction.
 
 ## Environment
 
 Copy `.env.example` to `.env` (git-ignored) and fill it in. On render, `MONGODB_URI` is entered once when the Blueprint is created; `DB_NAME` comes from `render.yaml`; render supplies `PORT` itself.
 
+If local Atlas DNS resolution fails, set `DNS_SERVERS=1.1.1.1,8.8.8.8` in `.env`. The backend applies this optional override to Node's DNS resolver before connecting; it does not change Windows settings. Leave it unset on Render unless needed there. Local startup and the live `/health`, `/lessons` (30 records) and `/teachers` (10 records) reads were verified with this override on 2026-11-23.
+
 ## Run locally
 
 ```
 npm install
-npm start          # HTTP-only stage: no .env or database connection needed
+npm start          # requires MONGODB_URI in the process environment
+node --env-file=.env server.js  # start locally using .env
 npm run dev        # node --watch --env-file=.env server.js  (restarts on save)
 npm test           # built-in Node tests; temporary local server closes afterward
 ```
 
-`npm run dev` requires a local `.env` file. `npm start` can be used without one while the database is unfinished. No additional runtime or test libraries were added.
+`npm run dev` requires a local `.env` file. `npm start` uses environment variables supplied by the host, as on Render. No additional runtime or test libraries were added.
 
 For local frontend access, use `http://127.0.0.1:5500` or `http://localhost:5500`. The other allowed origin is `https://name0x0.github.io`. CORS grants browser access to those exact origins, allows GET/POST/PUT/OPTIONS and Content-Type, and answers preflight with 204. CORS is not authentication and does not block direct non-browser requests.
 
@@ -117,13 +143,13 @@ HTTP examples for this stage:
 |---|---|
 | `GET /images/piano.webp` | 200, actual image |
 | `GET /images/missing.webp` | 404, JSON image error |
-| `GET /lessons?country=UAE` | 501, database query TODO |
+| `GET /lessons?country=UAE` | 200, lesson array |
 | `GET /lessons?country=France` | 400, unsupported country |
-| `POST /orders` with valid JSON order | 501, database insert TODO |
-| `PUT /lessons/<24-hex-id>` with a non-empty JSON object | 501, database update TODO |
-| `GET /health` | 503, database check TODO |
+| `POST /orders` with valid JSON order | 201 with inserted ID, or 404 for missing lessons |
+| `PUT /lessons/<24-hex-id>` with a non-empty JSON object | 200 with matched/modified counts, or 404 |
+| `GET /health` | 200 for a successful database ping, otherwise 503 |
 
-PUT checks object shape and field names; data-type/value rules and record existence must be completed with the database stage. POST checks the current frontend's name, digits-only international phone, lesson IDs, space count, optional email format and optional checkout ID. Email format validation does not verify ownership of the address. Search, teacher and enrolment algorithms remain TODOs; no DELETE endpoint was added because the coursework API does not require one.
+PUT rejects unsafe field names and invalid values for known lesson fields, then sets supplied attributes with `$set`. POST validates customer details and verifies referenced lessons exist. Search matches topic/location without case sensitivity and price/space as text, escaping regex characters. Teacher lessons use `$in`; enrolment uses `$unwind` and `$count`. No DELETE endpoint is exposed. Email validation checks format only.
 
 The middleware uses Express's built-in facilities: [middleware guide](https://expressjs.com/en/guide/using-middleware/) and [static-file guide](https://expressjs.com/en/starter/static-files/).
 
@@ -156,7 +182,7 @@ All five steps were done on 2026-11-11.
 | render.com | n/a | Hosting service | https://render.com |
 | Lesson images | n/a | AI-generated for this project; tool and prompts recorded in the coursework GenAI log | n/a |
 
-**GenAI acknowledgement:** parts of this project's setup were produced with AI assistance and are declared in the coursework's GenAI log, as the module's AMBER rule requires. All application logic is written by the author.
+**GenAI acknowledgement:** - n/a
 
 ## Licence
 
